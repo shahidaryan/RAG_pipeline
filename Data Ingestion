@@ -1,0 +1,18 @@
+from bs4 import BeautifulSoup
+import requests
+from sentence_transformers import SentenceTransformer
+import pinecone
+
+model = SentenceTransformer('all-MiniLM-L6-v2')  
+pinecone.init(api_key="YOUR_API_KEY", environment="us-west1-gcp")
+index = pinecone.Index("website-content")
+
+def scrape_and_process(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    content = [p.text for p in soup.find_all('p')]
+    chunks = [content[i:i + 500] for i in range(0, len(content), 500)]  # Chunking
+    for chunk in chunks:
+        embedding = model.encode(chunk)
+        metadata = {"source": url}
+        index.upsert([(url + str(hash(chunk)), embedding, metadata)])
